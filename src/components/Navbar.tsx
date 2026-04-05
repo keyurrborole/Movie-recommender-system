@@ -1,5 +1,6 @@
 import { Search, Film, Bookmark, User } from "lucide-react";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 
 interface NavbarProps {
   onSearchChange: (query: string) => void;
@@ -11,21 +12,21 @@ const Navbar = ({ onSearchChange }: NavbarProps) => {
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl">
       <div className="container mx-auto flex h-16 items-center justify-between px-4">
-        <div className="flex items-center gap-2">
+        <Link to="/" className="flex items-center gap-2">
           <Film className="h-6 w-6 text-primary" />
           <span className="font-display text-lg font-bold text-foreground tracking-wide">
             CineVault
           </span>
-        </div>
+        </Link>
 
         <div className="hidden items-center gap-8 md:flex">
-          <a href="#" className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
+          <Link to="/films" className="text-sm font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground">
             Films
-          </a>
-          <a href="#" className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
+          </Link>
+          <a href="#" className="text-sm font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground">
             Lists
           </a>
-          <a href="#" className="text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
+          <a href="#" className="text-sm font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground">
             Members
           </a>
         </div>
