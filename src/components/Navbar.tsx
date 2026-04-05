@@ -23,9 +23,9 @@ const Navbar = ({ onSearchChange }: NavbarProps) => {
           <Link to="/films" className="text-sm font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground">
             Films
           </Link>
-          <a href="#" className="text-sm font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground">
-            Lists
-          </a>
+          <Link to="/your-movies" className="text-sm font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground">
+            Your Movies
+          </Link>
         </div>
 
         <div className="flex items-center gap-3">
