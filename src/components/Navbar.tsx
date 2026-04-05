@@ -26,9 +26,6 @@ const Navbar = ({ onSearchChange }: NavbarProps) => {
           <a href="#" className="text-sm font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground">
             Lists
           </a>
-          <a href="#" className="text-sm font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground">
-            Members
-          </a>
         </div>
 
         <div className="flex items-center gap-3">
