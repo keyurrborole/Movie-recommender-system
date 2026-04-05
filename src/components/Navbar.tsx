@@ -1,5 +1,6 @@
 import { Search, Film, Bookmark, User } from "lucide-react";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 
 interface NavbarProps {
   onSearchChange: (query: string) => void;
