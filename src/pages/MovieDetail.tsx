@@ -161,8 +161,8 @@ const MovieDetail = () => {
               </div>
             </div>
 
-            {/* Reviews */}
-            <div>
+            {/* Reviews - hidden for now */}
+            <div className="hidden">
               <h3 className="mb-4 text-xs font-bold uppercase tracking-widest text-muted-foreground">
                 Popular Reviews
               </h3>
