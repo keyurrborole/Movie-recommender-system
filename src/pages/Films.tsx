@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { ChevronDown, Eye, Heart, List, Search } from "lucide-react";
+import { Link } from "react-router-dom";
 import Navbar from "@/components/Navbar";
 import { movies } from "@/data/movies";
 import type { Movie } from "@/data/movies";
@@ -72,7 +73,7 @@ const FilmPosterCard = ({ movie, index }: { movie: Movie; index: number }) => {
       transition={{ delay: index * 0.05, duration: 0.35 }}
       className="group"
     >
-      <div className="relative aspect-[2/3] overflow-hidden rounded border-2 border-transparent transition-colors hover:border-primary">
+      <Link to={`/film/${movie.id}`} className="relative aspect-[2/3] overflow-hidden rounded border-2 border-transparent transition-colors hover:border-primary block">
         <img
           src={movie.poster}
           alt={movie.title}
@@ -80,7 +81,7 @@ const FilmPosterCard = ({ movie, index }: { movie: Movie; index: number }) => {
           className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
         />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-background/60 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
-      </div>
+      </Link>
       <div className="mt-2 flex items-center gap-3 text-[11px] text-muted-foreground">
         <span className="flex items-center gap-1">
           <Eye size={12} className="text-primary" />
@@ -236,14 +237,14 @@ const Films = () => {
                 transition={{ delay: i * 0.04, duration: 0.3 }}
                 className="group"
               >
-                <div className="relative aspect-[2/3] overflow-hidden rounded border-2 border-transparent transition-colors hover:border-primary">
+                <Link to={`/film/${movie.id}`} className="relative aspect-[2/3] overflow-hidden rounded border-2 border-transparent transition-colors hover:border-primary block">
                   <img
                     src={movie.poster}
                     alt={movie.title}
                     loading="lazy"
                     className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                   />
-                </div>
+                </Link>
                 <p className="mt-1.5 truncate text-xs font-medium text-foreground">{movie.title}</p>
                 <p className="text-[11px] text-muted-foreground">{movie.year}</p>
               </motion.div>
