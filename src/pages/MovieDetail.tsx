@@ -229,7 +229,7 @@ const MovieDetail = () => {
             {/* Rate */}
             <div className="border-t border-border pt-4 text-center">
               <p className="mb-2 text-xs font-semibold text-primary uppercase tracking-wider">Rate</p>
-              <StarRating rating={userRating} interactive size={22} onChange={setUserRating} />
+              <StarRating rating={userRating} interactive size={22} onRate={setUserRating} />
             </div>
 
             {/* Actions */}
