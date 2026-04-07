@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
 import { Eye, Heart, Bookmark } from "lucide-react";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import type { Movie } from "@/data/movies";
 import StarRating from "./StarRating";
 
@@ -23,7 +24,7 @@ const MovieCard = ({ movie, index = 0 }: MovieCardProps) => {
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <div className="relative aspect-[2/3] w-[180px] overflow-hidden rounded-md">
+      <Link to={`/film/${movie.id}`} className="relative aspect-[2/3] w-[180px] overflow-hidden rounded-md block">
         <img
           src={movie.poster}
           alt={movie.title}
@@ -58,7 +59,7 @@ const MovieCard = ({ movie, index = 0 }: MovieCardProps) => {
           </div>
           <StarRating rating={movie.rating} interactive size={16} />
         </motion.div>
-      </div>
+      </Link>
 
       <div className="mt-2 w-[180px]">
         <h3 className="truncate text-sm font-medium text-foreground">{movie.title}</h3>
