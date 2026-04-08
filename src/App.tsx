@@ -8,6 +8,7 @@ import Films from "./pages/Films.tsx";
 import YourMovies from "./pages/YourMovies.tsx";
 import MovieDetail from "./pages/MovieDetail.tsx";
 import NotFound from "./pages/NotFound.tsx";
+import Login from "./pages/Login.tsx";
 
 const queryClient = new QueryClient();
 
@@ -19,6 +20,7 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
+          <Route path="/login" element={<Login />} />
           <Route path="/films" element={<Films />} />
           <Route path="/your-movies" element={<YourMovies />} />
           <Route path="/film/:id" element={<MovieDetail />} />
