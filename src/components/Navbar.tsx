@@ -49,9 +49,9 @@ const Navbar = ({ onSearchChange }: NavbarProps) => {
           <button className="rounded-md p-2 text-muted-foreground transition-colors hover:text-foreground">
             <Bookmark className="h-5 w-5" />
           </button>
-          <button className="rounded-md p-2 text-muted-foreground transition-colors hover:text-foreground">
+          <Link to="/login" className="rounded-md p-2 text-muted-foreground transition-colors hover:text-foreground">
             <User className="h-5 w-5" />
-          </button>
+          </Link>
         </div>
       </div>
     </nav>
