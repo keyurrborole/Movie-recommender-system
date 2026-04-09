@@ -1,7 +1,9 @@
-import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Film, Eye, EyeOff } from "lucide-react";
 import { motion } from "framer-motion";
+import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 const Login = () => {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -9,11 +11,116 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [username, setUsername] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [forgotCooldownSeconds, setForgotCooldownSeconds] = useState(0);
+  const [signUpCooldownSeconds, setSignUpCooldownSeconds] = useState(0);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { user, signIn, signUp, requestPasswordReset } = useAuth();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const redirectPath =
+    (location.state as { from?: { pathname?: string } } | undefined)?.from?.pathname || "/films";
+
+  useEffect(() => {
+    if (user) {
+      navigate(redirectPath, { replace: true });
+    }
+  }, [user, navigate, redirectPath]);
+
+  useEffect(() => {
+    if (forgotCooldownSeconds <= 0) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setForgotCooldownSeconds((prev) => Math.max(0, prev - 1));
+    }, 1000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [forgotCooldownSeconds]);
+
+  useEffect(() => {
+    if (signUpCooldownSeconds <= 0) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setSignUpCooldownSeconds((prev) => Math.max(0, prev - 1));
+    }, 1000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [signUpCooldownSeconds]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // TODO: integrate auth
-    console.log(isSignUp ? "Sign up" : "Login", { email, password, username });
+
+    if (!email || !password) {
+      toast.error("Email and password are required.");
+      return;
+    }
+
+    if (isSignUp && !username.trim()) {
+      toast.error("Username is required for sign up.");
+      return;
+    }
+
+    if (isSignUp && signUpCooldownSeconds > 0) {
+      toast.error(`Please wait ${signUpCooldownSeconds}s before trying to sign up again.`);
+      return;
+    }
+
+    try {
+      setIsSubmitting(true);
+
+      if (isSignUp) {
+        await signUp(email.trim(), password, username.trim());
+        setSignUpCooldownSeconds(60);
+        toast.success("Account created. Check your email to verify your account.");
+      } else {
+        await signIn(email.trim(), password);
+        toast.success("Signed in successfully.");
+        navigate(redirectPath, { replace: true });
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Authentication failed.";
+      if (isSignUp && /rate|too many|email rate/i.test(message)) {
+        setSignUpCooldownSeconds(60);
+        toast.error("Too many sign-up email requests. Please wait one minute and try again.");
+      } else {
+        toast.error(message);
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    if (forgotCooldownSeconds > 0) {
+      return;
+    }
+
+    if (!email.trim()) {
+      toast.error("Enter your email first, then click Forgot password.");
+      return;
+    }
+
+    try {
+      await requestPasswordReset(email.trim());
+      setForgotCooldownSeconds(60);
+      toast.success("Reset email sent. Please check your inbox.");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not send reset email.";
+      if (/rate|too many/i.test(message)) {
+        setForgotCooldownSeconds(60);
+        toast.error("Too many reset requests. Please wait a minute and try again.");
+        return;
+      }
+      toast.error(message);
+    }
   };
 
   return (
@@ -128,18 +235,29 @@ const Login = () => {
               <div className="text-right">
                 <button
                   type="button"
+                  onClick={handleForgotPassword}
+                  disabled={forgotCooldownSeconds > 0}
                   className="text-xs text-primary hover:underline"
                 >
-                  Forgot password?
+                  {forgotCooldownSeconds > 0
+                    ? `Try again in ${forgotCooldownSeconds}s`
+                    : "Forgot password?"}
                 </button>
               </div>
             )}
 
             <button
               type="submit"
+              disabled={isSubmitting || (isSignUp && signUpCooldownSeconds > 0)}
               className="w-full h-11 rounded-lg bg-primary text-primary-foreground font-semibold text-sm hover:bg-primary/90 transition-colors"
             >
-              {isSignUp ? "Create Account" : "Sign In"}
+              {isSubmitting
+                ? "Please wait..."
+                : isSignUp && signUpCooldownSeconds > 0
+                  ? `Try again in ${signUpCooldownSeconds}s`
+                  : isSignUp
+                    ? "Create Account"
+                    : "Sign In"}
             </button>
           </form>
 

@@ -2,11 +2,18 @@ import { motion } from "framer-motion";
 import { Eye, Heart, Bookmark } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import type { Movie } from "@/data/movies";
 import StarRating from "./StarRating";
 
+export interface MovieCardItem {
+  id: number;
+  title: string;
+  year: number;
+  rating: number;
+  poster: string;
+}
+
 interface MovieCardProps {
-  movie: Movie;
+  movie: MovieCardItem;
   index?: number;
 }
 

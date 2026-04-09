@@ -1,17 +1,63 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { Heart, Eye, Bookmark, Star, Trash2 } from "lucide-react";
+import { toast } from "sonner";
 import Navbar from "@/components/Navbar";
-import { movies } from "@/data/movies";
-import type { Movie } from "@/data/movies";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  fetchUserMovieCollections,
+  removeMovieFromCollection,
+  type UserLibraryMovie,
+} from "@/services/supabaseService";
 
 type Tab = "watchlist" | "watched" | "liked";
 
 const YourMovies = () => {
   const [activeTab, setActiveTab] = useState<Tab>("watchlist");
-  const [watchlist, setWatchlist] = useState<Movie[]>(movies.slice(0, 3));
-  const [watched, setWatched] = useState<Movie[]>(movies.slice(2, 5));
-  const [liked, setLiked] = useState<Movie[]>(movies.slice(1, 4));
+  const [watchlist, setWatchlist] = useState<UserLibraryMovie[]>([]);
+  const [watched, setWatched] = useState<UserLibraryMovie[]>([]);
+  const [liked, setLiked] = useState<UserLibraryMovie[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState("");
+  const { user } = useAuth();
+
+  useEffect(() => {
+    let ignore = false;
+
+    const loadCollections = async () => {
+      if (!user) {
+        return;
+      }
+
+      try {
+        setIsLoading(true);
+        setError("");
+        const collections = await fetchUserMovieCollections(user.id);
+
+        if (ignore) {
+          return;
+        }
+
+        setWatchlist(collections.watchlist);
+        setWatched(collections.watched);
+        setLiked(collections.liked);
+      } catch (err) {
+        if (!ignore) {
+          setError(err instanceof Error ? err.message : "Failed to load your movies.");
+        }
+      } finally {
+        if (!ignore) {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadCollections();
+
+    return () => {
+      ignore = true;
+    };
+  }, [user]);
 
   const tabs: { key: Tab; label: string; icon: React.ReactNode; count: number }[] = [
     { key: "watchlist", label: "Watchlist", icon: <Bookmark size={16} />, count: watchlist.length },
@@ -22,8 +68,18 @@ const YourMovies = () => {
   const currentList = activeTab === "watchlist" ? watchlist : activeTab === "watched" ? watched : liked;
   const setCurrentList = activeTab === "watchlist" ? setWatchlist : activeTab === "watched" ? setWatched : setLiked;
 
-  const removeMovie = (id: number) => {
-    setCurrentList((prev) => prev.filter((m) => m.id !== id));
+  const removeMovie = async (id: number) => {
+    if (!user) {
+      return;
+    }
+
+    try {
+      await removeMovieFromCollection(user.id, id, activeTab);
+      setCurrentList((prev) => prev.filter((m) => m.id !== id));
+      toast.success("Removed from your list.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to remove movie.");
+    }
   };
 
   return (
@@ -60,7 +116,11 @@ const YourMovies = () => {
         </div>
 
         {/* Movie Grid */}
-        {currentList.length > 0 ? (
+        {error ? (
+          <p className="py-12 text-center text-sm text-destructive">{error}</p>
+        ) : isLoading ? (
+          <p className="py-12 text-center text-sm text-muted-foreground">Loading your movies...</p>
+        ) : currentList.length > 0 ? (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
             {currentList.map((movie, i) => (
               <motion.div
@@ -90,7 +150,7 @@ const YourMovies = () => {
                   <p className="text-[11px] text-muted-foreground">{movie.year}</p>
                   <span className="flex items-center gap-0.5 text-[11px] text-accent">
                     <Star size={10} className="fill-accent" />
-                    {movie.rating}
+                    {movie.rating.toFixed(1)}
                   </span>
                 </div>
               </motion.div>

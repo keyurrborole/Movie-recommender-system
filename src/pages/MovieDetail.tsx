@@ -1,26 +1,215 @@
 import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Eye, Heart, Bookmark, ArrowLeft, Clock, Star, Calendar, User, MessageSquare, Flag, Share2 } from "lucide-react";
-import { useState } from "react";
+import { Eye, Heart, Bookmark, Clock, Star, Calendar, Flag } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import Navbar from "@/components/Navbar";
 import StarRating from "@/components/StarRating";
-import { movies } from "@/data/movies";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  MovieDetailData,
+  fetchMovieById,
+  fetchUserMovieState,
+  subscribeToUserMovieState,
+  unsubscribeChannel,
+  upsertUserMovieState,
+} from "@/services/supabaseService";
 
 const MovieDetail = () => {
   const { id } = useParams();
-  const movie = movies.find((m) => m.id === Number(id));
+  const movieId = useMemo(() => Number(id), [id]);
+  const [movie, setMovie] = useState<MovieDetailData | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
+  const [isUpdatingState, setIsUpdatingState] = useState(false);
   const [watched, setWatched] = useState(false);
   const [liked, setLiked] = useState(false);
   const [inWatchlist, setInWatchlist] = useState(false);
   const [userRating, setUserRating] = useState(0);
-  const [reviewText, setReviewText] = useState("");
+  const { user } = useAuth();
+  
+  useEffect(() => {
+    let ignore = false;
+
+    const loadMovie = async () => {
+      setIsLoading(true);
+      setLoadError("");
+
+      try {
+        const movieData = await fetchMovieById(movieId);
+
+        if (!ignore) {
+          setMovie(movieData);
+          setIsLoading(false);
+        }
+      } catch (err) {
+        if (!ignore) {
+          setLoadError(err instanceof Error ? err.message : "Failed to load movie.");
+          setIsLoading(false);
+        }
+      }
+    };
+
+    loadMovie();
+
+    return () => {
+      ignore = true;
+    };
+  }, [movieId]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    const syncUserState = async () => {
+      if (!user || Number.isNaN(movieId)) {
+        if (!ignore) {
+          setWatched(false);
+          setInWatchlist(false);
+          setLiked(false);
+          setUserRating(0);
+        }
+        return;
+      }
+
+      try {
+        const state = await fetchUserMovieState(user.id, movieId);
+
+        if (!ignore) {
+          setWatched(state.watched);
+          setInWatchlist(state.inWishlist);
+          setUserRating(state.userRating);
+          setLiked(state.userRating > 0);
+        }
+      } catch (err) {
+        if (!ignore) {
+          toast.error(err instanceof Error ? err.message : "Failed to load your movie state.");
+        }
+      }
+    };
+
+    syncUserState();
+
+    const channel = user && !Number.isNaN(movieId)
+      ? subscribeToUserMovieState(user.id, movieId, syncUserState)
+      : null;
+
+    return () => {
+      ignore = true;
+      unsubscribeChannel(channel);
+    };
+  }, [user, movieId]);
+
+  const requireUser = () => {
+    if (user) {
+      return true;
+    }
+
+    toast.error("Please sign in to update your movie activity.");
+    return false;
+  };
+
+  const toggleWatched = async () => {
+    if (!requireUser() || !user) {
+      return;
+    }
+
+    const next = !watched;
+    setWatched(next);
+    setIsUpdatingState(true);
+
+    try {
+      await upsertUserMovieState(user.id, movieId, { watched: next });
+    } catch (err) {
+      setWatched(!next);
+      toast.error(err instanceof Error ? err.message : "Failed to update watched state.");
+    } finally {
+      setIsUpdatingState(false);
+    }
+  };
+
+  const toggleWatchlist = async () => {
+    if (!requireUser() || !user) {
+      return;
+    }
+
+    const next = !inWatchlist;
+    setInWatchlist(next);
+    setIsUpdatingState(true);
+
+    try {
+      await upsertUserMovieState(user.id, movieId, { inWishlist: next });
+    } catch (err) {
+      setInWatchlist(!next);
+      toast.error(err instanceof Error ? err.message : "Failed to update watchlist state.");
+    } finally {
+      setIsUpdatingState(false);
+    }
+  };
+
+  const toggleLiked = async () => {
+    if (!requireUser() || !user) {
+      return;
+    }
+
+    const nextLiked = !liked;
+    const nextRating = nextLiked ? (userRating > 0 ? userRating : 10) : 0;
+    const previousLiked = liked;
+    const previousRating = userRating;
+
+    setLiked(nextLiked);
+    setUserRating(nextRating);
+    setIsUpdatingState(true);
+
+    try {
+      await upsertUserMovieState(user.id, movieId, { userRating: nextRating });
+    } catch (err) {
+      setLiked(previousLiked);
+      setUserRating(previousRating);
+      toast.error(err instanceof Error ? err.message : "Failed to update like state.");
+    } finally {
+      setIsUpdatingState(false);
+    }
+  };
+
+  const handleRate = async (rating: number) => {
+    if (!requireUser() || !user) {
+      return;
+    }
+
+    const previousRating = userRating;
+    const previousLiked = liked;
+    setUserRating(rating);
+    setLiked(rating > 0);
+    setIsUpdatingState(true);
+
+    try {
+      await upsertUserMovieState(user.id, movieId, { userRating: rating });
+    } catch (err) {
+      setUserRating(previousRating);
+      setLiked(previousLiked);
+      toast.error(err instanceof Error ? err.message : "Failed to update rating.");
+    } finally {
+      setIsUpdatingState(false);
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar onSearchChange={() => {}} />
+        <div className="container mx-auto px-4 pt-32 text-center text-muted-foreground">
+          Loading movie...
+        </div>
+      </div>
+    );
+  }
 
   if (!movie) {
     return (
       <div className="min-h-screen bg-background">
         <Navbar onSearchChange={() => {}} />
         <div className="container mx-auto px-4 pt-32 text-center">
-          <h1 className="text-2xl font-display text-foreground">Film not found</h1>
+          <h1 className="text-2xl font-display text-foreground">{loadError || "Film not found"}</h1>
           <Link to="/films" className="mt-4 inline-block text-primary hover:underline">
             ← Back to Films
           </Link>
@@ -34,13 +223,13 @@ const MovieDetail = () => {
     {
       user: "cinephile_42",
       date: "03 Apr 2026",
-      text: `Absolutely stunning. ${movie.director} has outdone themselves with this one. The cinematography alone is worth the price of admission.`,
+      text: "Absolutely stunning. The cinematography alone is worth the price of admission.",
       likes: 24,
     },
     {
       user: "film_noir_fan",
       date: "01 Apr 2026",
-      text: `Good but not great. The pacing felt off in the second act, though the ending was satisfying. ${movie.genre[0]} fans will enjoy it.`,
+      text: `Good but not great. The pacing felt off in the second act, though the ending was satisfying. ${movie.genre[0] ?? "Movie"} fans will enjoy it.`,
       likes: 8,
     },
   ];
@@ -50,16 +239,17 @@ const MovieDetail = () => {
       <Navbar onSearchChange={() => {}} />
 
       {/* Backdrop */}
-      <div className="relative h-[280px] w-full overflow-hidden">
+      <div className="relative h-[360px] w-full overflow-hidden md:h-[440px]">
         <img
-          src={movie.poster}
+          src={movie.backdrop}
           alt=""
-          className="h-full w-full object-cover blur-md scale-110 opacity-30"
+          className="h-full w-full object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-background/70 to-background" />
+        <div className="absolute inset-0 bg-gradient-to-r from-background/55 via-background/35 to-background/70" />
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-background/35 to-background" />
       </div>
 
-      <div className="container mx-auto px-4 -mt-40 relative z-10 pb-16">
+      <div className="container mx-auto px-4 -mt-52 relative z-10 pb-16 md:-mt-56">
         <div className="grid grid-cols-[240px_1fr_280px] gap-8 items-start">
           {/* Left: Poster */}
           <motion.div
@@ -75,13 +265,15 @@ const MovieDetail = () => {
               />
               <div className="absolute bottom-0 left-0 right-0 flex items-center gap-2 bg-background/80 p-2 backdrop-blur-sm">
                 <button
-                  onClick={() => setWatched(!watched)}
+                  onClick={toggleWatched}
+                  disabled={isUpdatingState}
                   className="rounded-full bg-secondary p-1.5 transition-colors hover:bg-primary"
                 >
                   <Eye size={14} className={watched ? "text-primary" : "text-muted-foreground"} />
                 </button>
                 <button
-                  onClick={() => setLiked(!liked)}
+                  onClick={toggleLiked}
+                  disabled={isUpdatingState}
                   className="rounded-full bg-secondary p-1.5 transition-colors hover:bg-primary"
                 >
                   <Heart size={14} className={liked ? "fill-accent text-accent" : "text-muted-foreground"} />
@@ -93,7 +285,7 @@ const MovieDetail = () => {
             </div>
 
             {/* Where to watch */}
-            <div className="mt-4 space-y-2">
+            {/* <div className="mt-4 space-y-2">
               <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Where to Watch</h4>
               <div className="space-y-1">
                 {["Streaming Service", "Rent / Buy"].map((service) => (
@@ -103,7 +295,7 @@ const MovieDetail = () => {
                   </div>
                 ))}
               </div>
-            </div>
+            </div> */}
           </motion.div>
 
           {/* Center: Details & Reviews */}
@@ -120,14 +312,19 @@ const MovieDetail = () => {
               </h1>
               <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
                 <span className="flex items-center gap-1">
-                  <User size={12} />
-                  Directed by <span className="text-foreground font-medium">{movie.director}</span>
+                  <Calendar size={12} />
+                  {movie.year || "Unknown year"}
                 </span>
                 <span className="flex items-center gap-1">
                   <Clock size={12} />
-                  {movie.duration}
+                  {movie.runtimeText}
                 </span>
               </div>
+              {movie.originalTitle !== movie.title && (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Original title: <span className="text-foreground">{movie.originalTitle}</span>
+                </p>
+              )}
               <div className="mt-2 flex gap-2">
                 {movie.genre.map((g) => (
                   <span
@@ -139,6 +336,10 @@ const MovieDetail = () => {
                 ))}
               </div>
             </div>
+
+            {movie.tagline && (
+              <p className="text-sm italic text-foreground">{movie.tagline}</p>
+            )}
 
             <p className="text-sm leading-relaxed text-muted-foreground">{movie.synopsis}</p>
 
@@ -152,12 +353,8 @@ const MovieDetail = () => {
                 <p className="text-[11px] text-muted-foreground">Average</p>
               </div>
               <div className="text-center">
-                <p className="text-lg font-bold text-foreground">{Math.floor(Math.random() * 5000 + 1000)}</p>
+                <p className="text-lg font-bold text-foreground">{movie.voteCount}</p>
                 <p className="text-[11px] text-muted-foreground">Ratings</p>
-              </div>
-              <div className="text-center">
-                <p className="text-lg font-bold text-foreground">{Math.floor(Math.random() * 800 + 100)}</p>
-                <p className="text-[11px] text-muted-foreground">Reviews</p>
               </div>
             </div>
 
@@ -204,21 +401,24 @@ const MovieDetail = () => {
             {/* Watch / Like / Watchlist */}
             <div className="flex justify-around">
               <button
-                onClick={() => setWatched(!watched)}
+                onClick={toggleWatched}
+                disabled={isUpdatingState}
                 className="flex flex-col items-center gap-1 text-xs"
               >
                 <Eye size={24} className={watched ? "text-primary" : "text-muted-foreground"} />
                 <span className={watched ? "text-primary font-medium" : "text-muted-foreground"}>Watch</span>
               </button>
               <button
-                onClick={() => setLiked(!liked)}
+                onClick={toggleLiked}
+                disabled={isUpdatingState}
                 className="flex flex-col items-center gap-1 text-xs"
               >
                 <Heart size={24} className={liked ? "fill-accent text-accent" : "text-muted-foreground"} />
                 <span className={liked ? "text-accent font-medium" : "text-muted-foreground"}>Like</span>
               </button>
               <button
-                onClick={() => setInWatchlist(!inWatchlist)}
+                onClick={toggleWatchlist}
+                disabled={isUpdatingState}
                 className="flex flex-col items-center gap-1 text-xs"
               >
                 <Bookmark size={24} className={inWatchlist ? "fill-primary text-primary" : "text-muted-foreground"} />
@@ -229,11 +429,11 @@ const MovieDetail = () => {
             {/* Rate */}
             <div className="border-t border-border pt-4 text-center">
               <p className="mb-2 text-xs font-semibold text-primary uppercase tracking-wider">Rate</p>
-              <StarRating rating={userRating} interactive size={22} onRate={setUserRating} />
+              <StarRating rating={userRating} interactive size={22} onRate={handleRate} />
             </div>
 
             {/* Actions */}
-            <div className="space-y-1 border-t border-border pt-4">
+            {/* <div className="space-y-1 border-t border-border pt-4">
               {[
                 "Show your activity",
                 "Review or log...",
@@ -247,7 +447,7 @@ const MovieDetail = () => {
                   {action}
                 </button>
               ))}
-            </div>
+            </div> */}
           </motion.div>
         </div>
       </div>

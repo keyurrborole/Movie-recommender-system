@@ -1,6 +1,8 @@
 import { Search, Film, Bookmark, User } from "lucide-react";
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface NavbarProps {
   onSearchChange: (query: string) => void;
@@ -8,6 +10,25 @@ interface NavbarProps {
 
 const Navbar = ({ onSearchChange }: NavbarProps) => {
   const [searchOpen, setSearchOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
+
+  const userDisplayName =
+    (typeof user?.user_metadata?.username === "string" && user.user_metadata.username) ||
+    (typeof user?.user_metadata?.full_name === "string" && user.user_metadata.full_name) ||
+    user?.email?.split("@")[0] ||
+    "Profile";
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      toast.success("Signed out successfully.");
+      navigate("/", { replace: true });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to sign out.");
+    }
+  };
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl">
@@ -29,7 +50,7 @@ const Navbar = ({ onSearchChange }: NavbarProps) => {
         </div>
 
         <div className="flex items-center gap-3">
-          {searchOpen ? (
+          {/* {searchOpen ? (
             <input
               autoFocus
               type="text"
@@ -45,13 +66,44 @@ const Navbar = ({ onSearchChange }: NavbarProps) => {
             >
               <Search className="h-5 w-5" />
             </button>
-          )}
-          <button className="rounded-md p-2 text-muted-foreground transition-colors hover:text-foreground">
+          )} */}
+          {/* <button className="rounded-md p-2 text-muted-foreground transition-colors hover:text-foreground">
             <Bookmark className="h-5 w-5" />
-          </button>
-          <Link to="/login" className="rounded-md p-2 text-muted-foreground transition-colors hover:text-foreground">
-            <User className="h-5 w-5" />
-          </Link>
+          </button> */}
+          {user ? (
+            <div className="relative">
+              <button
+                onClick={() => setProfileOpen((prev) => !prev)}
+                className="rounded-md p-2 text-muted-foreground transition-colors hover:text-foreground"
+                title="Profile"
+              >
+                <User className="h-5 w-5" />
+              </button>
+
+              {profileOpen && (
+                <div className="absolute right-0 mt-2 w-64 rounded-lg border border-border bg-card p-3 shadow-xl">
+                  <div className="mb-3 border-b border-border pb-3">
+                    <p className="truncate text-sm font-semibold text-foreground">{userDisplayName}</p>
+                    <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+                  </div>
+
+                  <button
+                    onClick={async () => {
+                      setProfileOpen(false);
+                      await handleSignOut();
+                    }}
+                    className="w-full rounded-md border border-border bg-secondary px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-secondary-foreground transition-colors hover:bg-muted"
+                  >
+                    Sign out
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <Link to="/login" className="rounded-md p-2 text-muted-foreground transition-colors hover:text-foreground">
+              <User className="h-5 w-5" />
+            </Link>
+          )}
         </div>
       </div>
     </nav>

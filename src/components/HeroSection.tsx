@@ -1,13 +1,28 @@
 import { motion } from "framer-motion";
 import { Play, Plus } from "lucide-react";
+import { Link } from "react-router-dom";
 import heroBg from "@/assets/hero-bg.jpg";
 import StarRating from "./StarRating";
+import type { FeaturedMovie } from "@/services/supabaseService";
 
-const HeroSection = () => {
+interface HeroSectionProps {
+  featured?: FeaturedMovie | null;
+}
+
+const HeroSection = ({ featured }: HeroSectionProps) => {
+  const heroTitle = featured?.title ?? "Astral Drift";
+  const heroRating = featured?.rating ?? 4.7;
+  const heroYear = featured?.year ?? 2024;
+  const heroRuntime = featured?.runtimeText ?? "2h 05m";
+  const heroOverview =
+    featured?.overview ??
+    "An astronaut on a solo mission begins receiving transmissions from a version of herself in another universe. A stunning exploration of identity and solitude.";
+  const heroBackdrop = featured?.backdrop ?? heroBg;
+
   return (
     <section className="relative h-[70vh] w-full overflow-hidden">
       <img
-        src={heroBg}
+        src={heroBackdrop}
         alt="Featured film"
         width={1920}
         height={800}
@@ -27,28 +42,31 @@ const HeroSection = () => {
             Featured Film
           </span>
           <h1 className="mb-3 font-display text-4xl font-bold leading-tight text-foreground md:text-5xl">
-            Astral Drift
+            {heroTitle}
           </h1>
           <div className="mb-3 flex items-center gap-3">
-            <StarRating rating={4.7} size={18} />
-            <span className="text-sm text-muted-foreground">4.7 / 5</span>
+            <StarRating rating={heroRating} size={18} />
+            <span className="text-sm text-muted-foreground">{heroRating.toFixed(1)} / 10</span>
             <span className="text-muted-foreground/40">·</span>
-            <span className="text-sm text-muted-foreground">2024</span>
+            <span className="text-sm text-muted-foreground">{heroYear}</span>
             <span className="text-muted-foreground/40">·</span>
-            <span className="text-sm text-muted-foreground">2h 05m</span>
+            <span className="text-sm text-muted-foreground">{heroRuntime}</span>
           </div>
           <p className="mb-6 text-sm leading-relaxed text-muted-foreground">
-            An astronaut on a solo mission begins receiving transmissions from a version of herself in another universe. A stunning exploration of identity and solitude.
+            {heroOverview}
           </p>
           <div className="flex items-center gap-3">
-            <button className="flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90">
+            <Link
+              to={featured ? `/film/${featured.id}` : "/films"}
+              className="flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            >
               <Play size={16} />
-              Watch Trailer
-            </button>
-            <button className="flex items-center gap-2 rounded-md border border-border bg-secondary px-5 py-2.5 text-sm font-medium text-secondary-foreground transition-colors hover:bg-muted">
+              View Details
+            </Link>
+            <Link to="/your-movies" className="flex items-center gap-2 rounded-md border border-border bg-secondary px-5 py-2.5 text-sm font-medium text-secondary-foreground transition-colors hover:bg-muted">
               <Plus size={16} />
               Watchlist
-            </button>
+            </Link>
           </div>
         </motion.div>
       </div>

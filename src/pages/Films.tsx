@@ -1,15 +1,20 @@
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { ChevronDown, Eye, Heart, List, Search } from "lucide-react";
+import { ChartSpline, ChevronDown, Eye, Heart, List, Search, Star } from "lucide-react";
 import { Link } from "react-router-dom";
 import Navbar from "@/components/Navbar";
-import { movies } from "@/data/movies";
-import type { Movie } from "@/data/movies";
+import {
+  PAGE_SIZE,
+  POPULAR_FILM_IDS,
+  FilmListMovie,
+  fetchMovies,
+  fetchMoviesByIds,
+} from "@/services/supabaseService";
 
 const FILTER_OPTIONS = {
-  year: ["All", "2024", "2023", "2022"],
+  year: ["All", "2020s", "2010s", "2000s", "1990s", "1980s", "1970s", "1960s", "1950s","1940s", "1930s", "1920s", "1910s", "1900s", "Before 1900"],
   rating: ["All", "Highest First", "Lowest First"],
-  genre: ["All", "Sci-Fi", "Drama", "Romance", "Horror", "Adventure", "Crime", "Fantasy", "Thriller", "Mystery", "Noir"],
+  genre: ["All", "Action", "Science Fiction", "Adventure", "Drama", "Crime", "Thriller", "Fantasy", "Comedy", "Romance", "Western", "Mystery", "War", "Animation", "Family", "Horror", "Music", "History", "TV Movie", "Documentary"],
   popular: ["All Time", "This Week", "This Month", "This Year"],
 };
 
@@ -61,10 +66,9 @@ const FilterDropdown = ({
   );
 };
 
-const FilmPosterCard = ({ movie, index }: { movie: Movie; index: number }) => {
-  const views = Math.floor(Math.random() * 500 + 100) + "K";
-  const lists = Math.floor(Math.random() * 200 + 20) + "K";
-  const likes = Math.floor(Math.random() * 300 + 50) + "K";
+const FilmPosterCard = ({ movie, index }: { movie: FilmListMovie; index: number }) => {
+  const rating = movie.rating ? movie.rating.toFixed(1) : "NR";
+  const voteCount = movie.votes > 0 ? movie.votes : "No ratings";
 
   return (
     <motion.div
@@ -84,24 +88,24 @@ const FilmPosterCard = ({ movie, index }: { movie: Movie; index: number }) => {
       </Link>
       <div className="mt-2 flex items-center gap-3 text-[11px] text-muted-foreground">
         <span className="flex items-center gap-1">
-          <Eye size={12} className="text-primary" />
-          {views}
+          <Star size={12} className="text-primary" />
+          {rating}
         </span>
         <span className="flex items-center gap-1">
-          <List size={12} className="text-primary" />
-          {lists}
+          <ChartSpline size={12} className="text-primary" />
+          {voteCount}
         </span>
-        <span className="flex items-center gap-1">
+        {/* <span className="flex items-center gap-1">
           <Heart size={12} className="text-accent" />
           {likes}
-        </span>
+        </span> */}
       </div>
     </motion.div>
   );
 };
 
 const Films = () => {
-  const [searchQuery, setSearchQuery] = useState("");
+  const [filmSearchInput, setFilmSearchInput] = useState("");
   const [filmSearch, setFilmSearch] = useState("");
   const [filters, setFilters] = useState({
     year: "All",
@@ -109,42 +113,112 @@ const Films = () => {
     genre: "All",
     popular: "This Week",
   });
+  const [movies, setMovies] = useState<FilmListMovie[]>([]);
+  const [popularFilms, setPopularFilms] = useState<FilmListMovie[]>([]);
+  const [currentPage, setCurrentPage] = useState(0);
+  const [totalCount, setTotalCount] = useState(0);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [error, setError] = useState("");
 
   const setFilter = (key: FilterKey, value: string) =>
     setFilters((prev) => ({ ...prev, [key]: value }));
 
-  const filteredMovies = useMemo(() => {
-    let result = [...movies];
-
-    if (filmSearch) {
-      result = result.filter((m) =>
-        m.title.toLowerCase().includes(filmSearch.toLowerCase())
-      );
-    }
-
-    if (filters.year !== "All") {
-      result = result.filter((m) => m.year === parseInt(filters.year));
-    }
-
-    if (filters.genre !== "All") {
-      result = result.filter((m) => m.genre.includes(filters.genre));
-    }
-
-    if (filters.rating === "Highest First") {
-      result.sort((a, b) => b.rating - a.rating);
-    } else if (filters.rating === "Lowest First") {
-      result.sort((a, b) => a.rating - b.rating);
-    }
-
-    return result;
+  useEffect(() => {
+    setCurrentPage(0);
   }, [filmSearch, filters]);
 
-  // Popular = top rated
-  const popularFilms = [...movies].sort((a, b) => b.rating - a.rating).slice(0, 4);
+  useEffect(() => {
+    let ignore = false;
+
+    const loadMovies = async () => {
+      if (currentPage === 0) {
+        setIsLoading(true);
+      } else {
+        setIsLoadingMore(true);
+      }
+
+      setError("");
+
+      try {
+        const ratingSort =
+          filters.rating === "Highest First"
+            ? "highest"
+            : filters.rating === "Lowest First"
+              ? "lowest"
+              : "popular";
+
+        const { movies: mappedMovies, totalCount } = await fetchMovies({
+          searchQuery: filmSearch,
+          genre: filters.genre,
+          yearFilter: filters.year,
+          ratingSort,
+          page: currentPage,
+        });
+
+        if (ignore) {
+          return;
+        }
+
+        setMovies((prev) => (currentPage === 0 ? mappedMovies : [...prev, ...mappedMovies]));
+        setTotalCount(totalCount);
+      } catch (err) {
+        if (!ignore) {
+          setError(err instanceof Error ? err.message : "Failed to fetch movies.");
+        }
+      } finally {
+        if (!ignore) {
+          setIsLoading(false);
+          setIsLoadingMore(false);
+        }
+      }
+    };
+
+    loadMovies();
+
+    return () => {
+      ignore = true;
+    };
+  }, [currentPage, filmSearch, filters]);
+
+  useEffect(() => {
+    let ignore = false;
+
+    const loadPopularMovies = async () => {
+      try {
+        const orderedPopularFilms = await fetchMoviesByIds(POPULAR_FILM_IDS);
+
+        if (!ignore) {
+          setPopularFilms(orderedPopularFilms);
+        }
+      } catch (err) {
+        // Silently fail for popular films
+        if (!ignore) {
+          setPopularFilms([]);
+        }
+      }
+    };
+
+    loadPopularMovies();
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  const hasMoreMovies = useMemo(() => movies.length < totalCount, [movies.length, totalCount]);
+  const hasActiveFilters = useMemo(
+    () =>
+      Boolean(filmSearch) ||
+      filters.year !== "All" ||
+      filters.genre !== "All" ||
+      filters.rating !== "All",
+    [filmSearch, filters.year, filters.genre, filters.rating],
+  );
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar onSearchChange={setSearchQuery} />
+      <Navbar onSearchChange={() => undefined} />
 
       <div className="container mx-auto px-4 pt-24 pb-16">
         {/* Browse By row */}
@@ -164,12 +238,12 @@ const Films = () => {
             value={filters.rating}
             onChange={(v) => setFilter("rating", v)}
           />
-          <FilterDropdown
+          {/* <FilterDropdown
             label="Popular"
             options={FILTER_OPTIONS.popular}
             value={filters.popular}
             onChange={(v) => setFilter("popular", v)}
-          />
+          /> */}
           <FilterDropdown
             label="Genre"
             options={FILTER_OPTIONS.genre}
@@ -186,50 +260,63 @@ const Films = () => {
               <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <input
                 type="text"
-                value={filmSearch}
-                onChange={(e) => setFilmSearch(e.target.value)}
+                value={filmSearchInput}
+                onChange={(e) => setFilmSearchInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    setFilmSearch(filmSearchInput.trim());
+                  }
+                }}
                 className="h-8 w-48 rounded border border-border bg-secondary pl-8 pr-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                placeholder="Search..."
+                placeholder="Search and press Enter"
               />
             </div>
           </div>
         </div>
 
-        {/* Popular Films This Week */}
-        <div className="mb-10">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-display text-sm font-bold uppercase tracking-widest text-muted-foreground">
-              Popular Films This Week
-            </h2>
-            <button className="text-xs font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground">
-              More
-            </button>
-          </div>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            {popularFilms.map((movie, i) => (
-              <FilmPosterCard key={movie.id} movie={movie} index={i} />
-            ))}
-          </div>
-        </div>
+        {!hasActiveFilters && (
+          <>
+            {/* Popular Films This Week */}
+            <div className="mb-10">
+              <div className="mb-4 flex items-center justify-between">
+                <h2 className="font-display text-sm font-bold uppercase tracking-widest text-muted-foreground">
+                  Popular Films
+                </h2>
+                <button className="text-xs font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:text-foreground">
+                  More
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                {popularFilms.map((movie, i) => (
+                  <FilmPosterCard key={movie.id} movie={movie} index={i} />
+                ))}
+              </div>
+            </div>
 
-        {/* Divider */}
-        <div className="mb-8 border-t border-border" />
+            {/* Divider */}
+            <div className="mb-8 border-t border-border" />
+          </>
+        )}
 
         {/* All Films / Filtered */}
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-display text-sm font-bold uppercase tracking-widest text-muted-foreground">
-            {filmSearch || filters.year !== "All" || filters.genre !== "All"
+            {hasActiveFilters
               ? "Results"
-              : "Just Reviewed..."}
+              : "Movies..."}
           </h2>
           <span className="text-xs text-muted-foreground">
-            {filteredMovies.length} film{filteredMovies.length !== 1 ? "s" : ""}
+            {totalCount} film{totalCount !== 1 ? "s" : ""}
           </span>
         </div>
 
-        {filteredMovies.length > 0 ? (
+        {error ? (
+          <p className="py-12 text-center text-sm text-destructive">{error}</p>
+        ) : isLoading ? (
+          <p className="py-12 text-center text-sm text-muted-foreground">Loading movies...</p>
+        ) : movies.length > 0 ? (
           <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
-            {filteredMovies.map((movie, i) => (
+            {movies.map((movie, i) => (
               <motion.div
                 key={movie.id}
                 initial={{ opacity: 0, y: 15 }}
@@ -249,6 +336,18 @@ const Films = () => {
                 <p className="text-[11px] text-muted-foreground">{movie.year}</p>
               </motion.div>
             ))}
+
+            {hasMoreMovies && (
+              <div className="col-span-full mt-6 flex justify-center">
+                <button
+                  onClick={() => setCurrentPage((prev) => prev + 1)}
+                  disabled={isLoadingMore}
+                  className="rounded border border-border bg-secondary px-5 py-2 text-xs font-semibold uppercase tracking-wider text-secondary-foreground transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isLoadingMore ? "Loading..." : `Load ${PAGE_SIZE} More`}
+                </button>
+              </div>
+            )}
           </div>
         ) : (
           <p className="py-12 text-center text-sm text-muted-foreground">
