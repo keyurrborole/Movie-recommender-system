@@ -23,4 +23,4 @@ dist-ssr
 *.sln
 *.sw?
 *.env
-backend/TMDB_movie_dataset_v11.csv
+backend/TMDB_movie_dataset_v11.csvbackend/TMDB_movie_dataset_v11.csv
