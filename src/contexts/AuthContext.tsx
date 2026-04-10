@@ -14,6 +14,12 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+const getAuthRedirectUrl = () => {
+  const configuredUrl = import.meta.env.VITE_APP_URL;
+  const baseUrl = configuredUrl ?? window.location.origin;
+  return `${baseUrl.replace(/\/$/, "")}/login`;
+};
+
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -93,6 +99,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           password,
           options: {
             data: username ? { username } : undefined,
+            emailRedirectTo: getAuthRedirectUrl(),
           },
         });
 
@@ -116,7 +123,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
 
         const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: `${window.location.origin}/login`,
+          redirectTo: getAuthRedirectUrl(),
         });
 
         if (error) {

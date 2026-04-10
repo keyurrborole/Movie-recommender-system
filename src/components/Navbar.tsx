@@ -1,4 +1,4 @@
-import { Search, Film, Bookmark, User } from "lucide-react";
+import { Film, Menu, User, X } from "lucide-react";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -9,7 +9,7 @@ interface NavbarProps {
 }
 
 const Navbar = ({ onSearchChange }: NavbarProps) => {
-  const [searchOpen, setSearchOpen] = useState(false);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
@@ -50,26 +50,14 @@ const Navbar = ({ onSearchChange }: NavbarProps) => {
         </div>
 
         <div className="flex items-center gap-3">
-          {/* {searchOpen ? (
-            <input
-              autoFocus
-              type="text"
-              placeholder="Search films..."
-              className="h-9 w-48 rounded-md border border-border bg-secondary px-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-              onChange={(e) => onSearchChange(e.target.value)}
-              onBlur={() => setSearchOpen(false)}
-            />
-          ) : (
-            <button
-              onClick={() => setSearchOpen(true)}
-              className="rounded-md p-2 text-muted-foreground transition-colors hover:text-foreground"
-            >
-              <Search className="h-5 w-5" />
-            </button>
-          )} */}
-          {/* <button className="rounded-md p-2 text-muted-foreground transition-colors hover:text-foreground">
-            <Bookmark className="h-5 w-5" />
-          </button> */}
+          <button
+            onClick={() => setMobileNavOpen((prev) => !prev)}
+            className="rounded-md p-2 text-muted-foreground transition-colors hover:text-foreground md:hidden"
+            aria-label="Toggle navigation menu"
+            aria-expanded={mobileNavOpen}
+          >
+            {mobileNavOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </button>
           {user ? (
             <div className="relative">
               <button
@@ -106,6 +94,27 @@ const Navbar = ({ onSearchChange }: NavbarProps) => {
           )}
         </div>
       </div>
+
+      {mobileNavOpen && (
+        <div className="border-t border-border bg-background px-4 py-3 md:hidden">
+          <div className="container mx-auto flex flex-col gap-3">
+            <Link
+              to="/films"
+              onClick={() => setMobileNavOpen(false)}
+              className="rounded-md px-2 py-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              Films
+            </Link>
+            <Link
+              to="/your-movies"
+              onClick={() => setMobileNavOpen(false)}
+              className="rounded-md px-2 py-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              Your Movies
+            </Link>
+          </div>
+        </div>
+      )}
     </nav>
   );
 };
